@@ -382,6 +382,9 @@ class RedditMonitorGUI:
         self.status_text_var.set("运行中")
         self.status_label.configure(foreground='green')
         
+        # 启动状态更新定时器
+        self.update_status_display()
+        
         self.start_btn.configure(state=tk.DISABLED)
         self.stop_btn.configure(state=tk.NORMAL)
         
@@ -390,18 +393,12 @@ class RedditMonitorGUI:
                 self.monitor = RedditMonitor(
                     url=url,
                     interval=interval_minutes * 60,
-                    data_dir=data_dir
+                    data_dir=data_dir,
+                    config_manager=self.config_manager
                 )
                 
-                while self.is_monitoring:
-                    self.monitor.monitor_once()
-                    self.root.after(0, self.refresh_logs)
-                    
-                    # 等待间隔，但允许中断
-                    for _ in range(interval_minutes * 60):
-                        if not self.is_monitoring:
-                            break
-                        time.sleep(1)
+                # 使用智能监控
+                self.monitor.start_monitoring()
                         
             except Exception as e:
                 self.root.after(0, lambda: messagebox.showerror("错误", f"监控过程中出错: {e}"))
@@ -502,6 +499,41 @@ class RedditMonitorGUI:
                 messagebox.showinfo("成功", f"日志已导出到: {filename}")
         except Exception as e:
             messagebox.showerror("错误", f"导出日志失败: {e}")
+    
+    def update_status_display(self):
+        """更新状态显示"""
+        if self.is_monitoring and hasattr(self, 'monitor') and self.monitor:
+            try:
+                stats = self.config_manager.get_session_stats()
+                
+                # 构建状态文本
+                status_text = "运行中"
+                if stats['total_checks'] > 0:
+                    status_text += f" (检查: {stats['total_checks']}, 成功率: {stats['success_rate']:.1f}%)"
+                    
+                if stats['time_until_next'] > 0:
+                    minutes = stats['time_until_next'] // 60
+                    seconds = stats['time_until_next'] % 60
+                    if minutes > 0:
+                        status_text += f", 下次: {minutes}分{seconds}秒"
+                    else:
+                        status_text += f", 下次: {seconds}秒"
+                
+                self.status_text_var.set(status_text)
+                
+            except Exception as e:
+                print(f"更新状态显示错误: {e}")
+        
+        # 如果仍在监控中，继续定时更新
+        if self.is_monitoring:
+            self.root.after(5000, self.update_status_display)  # 每5秒更新一次
+    
+    def update_monitoring_ui(self):
+        """更新监控UI状态"""
+        self.status_text_var.set("已停止")
+        self.status_label.configure(foreground='red')
+        self.start_btn.configure(state=tk.NORMAL)
+        self.stop_btn.configure(state=tk.DISABLED)
             
     def run(self):
         """运行GUI"""

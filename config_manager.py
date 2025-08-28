@@ -10,7 +10,13 @@ class ConfigManager:
                 "url": "https://www.reddit.com/r/CNC/",
                 "interval_minutes": 10,
                 "data_directory": "data",
-                "enabled": False
+                "enabled": False,
+                "last_check_time": None,
+                "last_successful_check": None,
+                "next_scheduled_check": None,
+                "total_checks": 0,
+                "failed_checks": 0,
+                "continuous_mode": True
             },
             "notifications": {
                 "enable_changes": True,
@@ -19,6 +25,12 @@ class ConfigManager:
             "storage": {
                 "max_files": 100,
                 "auto_cleanup": True
+            },
+            "session": {
+                "start_time": None,
+                "end_time": None,
+                "session_duration": 0,
+                "checks_this_session": 0
             },
             "created_at": datetime.now().isoformat(),
             "last_modified": datetime.now().isoformat()
@@ -167,6 +179,130 @@ class ConfigManager:
                 "description": "机器学习和人工智能"
             }
         ]
+    
+    # Time tracking methods
+    def update_check_time(self, success=True):
+        """Update the last check time and statistics"""
+        now = datetime.now().isoformat()
+        monitor_config = self.config.get('monitor', {})
+        
+        # Update check times
+        monitor_config['last_check_time'] = now
+        if success:
+            monitor_config['last_successful_check'] = now
+        
+        # Update counters
+        monitor_config['total_checks'] = monitor_config.get('total_checks', 0) + 1
+        if not success:
+            monitor_config['failed_checks'] = monitor_config.get('failed_checks', 0) + 1
+        
+        # Calculate next scheduled check
+        interval_minutes = monitor_config.get('interval_minutes', 10)
+        from datetime import timedelta
+        next_time = datetime.now() + timedelta(minutes=interval_minutes)
+        monitor_config['next_scheduled_check'] = next_time.isoformat()
+        
+        # Update session stats
+        session_config = self.config.get('session', {})
+        session_config['checks_this_session'] = session_config.get('checks_this_session', 0) + 1
+        
+        self.config['monitor'] = monitor_config
+        self.config['session'] = session_config
+        return self.save_config()
+    
+    def get_last_check_time(self):
+        """Get the last check time as datetime object"""
+        last_check = self.config.get('monitor', {}).get('last_check_time')
+        if last_check:
+            try:
+                return datetime.fromisoformat(last_check.replace('Z', '+00:00'))
+            except:
+                return None
+        return None
+    
+    def get_next_scheduled_check(self):
+        """Get the next scheduled check time as datetime object"""
+        next_check = self.config.get('monitor', {}).get('next_scheduled_check')
+        if next_check:
+            try:
+                return datetime.fromisoformat(next_check.replace('Z', '+00:00'))
+            except:
+                return None
+        return None
+    
+    def should_check_now(self):
+        """Determine if we should check now based on schedule"""
+        if not self.config.get('monitor', {}).get('continuous_mode', True):
+            return True  # Always check if not in continuous mode
+            
+        next_check = self.get_next_scheduled_check()
+        if next_check is None:
+            return True  # First check
+            
+        return datetime.now() >= next_check
+    
+    def get_time_until_next_check(self):
+        """Get seconds until next scheduled check"""
+        next_check = self.get_next_scheduled_check()
+        if next_check is None:
+            return 0
+            
+        delta = next_check - datetime.now()
+        return max(0, int(delta.total_seconds()))
+    
+    def start_session(self):
+        """Start a new monitoring session"""
+        session_config = self.config.get('session', {})
+        session_config['start_time'] = datetime.now().isoformat()
+        session_config['end_time'] = None
+        session_config['checks_this_session'] = 0
+        
+        self.config['session'] = session_config
+        return self.save_config()
+    
+    def end_session(self):
+        """End the current monitoring session"""
+        session_config = self.config.get('session', {})
+        start_time_str = session_config.get('start_time')
+        
+        if start_time_str:
+            try:
+                start_time = datetime.fromisoformat(start_time_str)
+                end_time = datetime.now()
+                duration = (end_time - start_time).total_seconds()
+                
+                session_config['end_time'] = end_time.isoformat()
+                session_config['session_duration'] = duration
+            except:
+                pass
+        
+        self.config['session'] = session_config
+        return self.save_config()
+    
+    def get_session_stats(self):
+        """Get current session statistics"""
+        session = self.config.get('session', {})
+        monitor = self.config.get('monitor', {})
+        
+        stats = {
+            'session_start': session.get('start_time'),
+            'session_checks': session.get('checks_this_session', 0),
+            'total_checks': monitor.get('total_checks', 0),
+            'failed_checks': monitor.get('failed_checks', 0),
+            'success_rate': 0,
+            'last_check': monitor.get('last_check_time'),
+            'last_successful_check': monitor.get('last_successful_check'),
+            'next_check': monitor.get('next_scheduled_check'),
+            'time_until_next': self.get_time_until_next_check()
+        }
+        
+        # Calculate success rate
+        total = monitor.get('total_checks', 0)
+        if total > 0:
+            failed = monitor.get('failed_checks', 0)
+            stats['success_rate'] = ((total - failed) / total) * 100
+            
+        return stats
 
 if __name__ == "__main__":
     # Test the config manager
