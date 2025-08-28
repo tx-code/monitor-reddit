@@ -1,0 +1,109 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reddit-monitor"
+version = "1.0.0"
+description = "Reddit监控系统 - 监控网站内容变化的工具"
+readme = "BUILD_README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+    { name = "Claude Code Assistant" },
+]
+keywords = ["monitoring", "reddit", "web-scraping", "flask", "gui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: System :: Monitoring",
+]
+
+dependencies = [
+    "requests>=2.28.0",
+    "flask>=2.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.7.0",
+    "pytest-cov>=4.0.0",
+]
+build = [
+    "pyinstaller>=5.0.0",
+    "pillow>=8.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.7.0",
+    "pytest-cov>=4.0.0",
+    "pyinstaller>=5.0.0", 
+    "pillow>=8.0.0",
+]
+
+[project.scripts]
+reddit-monitor = "main:main"
+reddit-monitor-web = "start_web:main"
+
+[project.gui-scripts]
+reddit-monitor-gui = "main:main"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.7.0",
+    "pytest-cov>=4.0.0",
+    "pyinstaller>=5.0.0",
+    "pillow>=8.0.0",
+]
+
+[tool.uv.sources]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "network: marks tests that require network access",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "build/*",
+    "dist/*",
+    "release/*",
+    ".*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Reddit监控系统 - 测试运行脚本
-运行各种类型的测试并生成报告
+使用uv环境运行各种类型的测试并生成报告
 """
 
 import os
@@ -11,6 +11,13 @@ import argparse
 import time
 from pathlib import Path
 
+def check_uv():
+    """检查uv是否安装"""
+    try:
+        result = subprocess.run(['uv', '--version'], capture_output=True, text=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
 
 class TestRunner:
     """测试运行器"""
@@ -21,20 +28,18 @@ class TestRunner:
         
     def install_dependencies(self):
         """安装测试依赖"""
-        print("📦 安装测试依赖...")
+        print("安装测试依赖...")
+        
+        if not check_uv():
+            print("ERROR: uv未安装")
+            return False
+            
         try:
             subprocess.run([
-                sys.executable, "-m", "pip", "install", "-r", "requirements.txt"
+                'uv', 'sync', '--dev'
             ], check=True, cwd=self.project_root)
             
-            # Install additional test dependencies
-            test_deps = ["psutil"]  # For performance tests
-            for dep in test_deps:
-                subprocess.run([
-                    sys.executable, "-m", "pip", "install", dep
-                ], check=True)
-                
-            print("✅ 依赖安装完成")
+            print("测试依赖同步完成")
             return True
         except subprocess.CalledProcessError as e:
             print(f"❌ 依赖安装失败: {e}")
@@ -44,7 +49,7 @@ class TestRunner:
         """运行单元测试"""
         print("\n🧪 运行单元测试...")
         
-        cmd = [sys.executable, "-m", "pytest"]
+        cmd = ['uv', 'run', 'pytest']
         
         if verbose:
             cmd.append("-v")
@@ -78,7 +83,7 @@ class TestRunner:
         print("\n⚡ 运行性能测试...")
         
         cmd = [
-            sys.executable, "-m", "pytest",
+            'uv', 'run', 'pytest',
             "tests/test_performance.py",
             "-m", "not slow"
         ]
@@ -106,7 +111,7 @@ class TestRunner:
         print("⚠️  警告: 压力测试可能需要较长时间")
         
         cmd = [
-            sys.executable, "-m", "pytest",
+            'uv', 'run', 'pytest',
             "tests/test_performance.py",
             "-m", "slow", "-s"
         ]
@@ -205,7 +210,7 @@ class TestRunner:
         print("\n📊 生成测试报告...")
         
         cmd = [
-            sys.executable, "-m", "pytest",
+            'uv', 'run', 'pytest',
             "--html=test_report.html",
             "--self-contained-html",
             "tests/"
