@@ -1,0 +1,26 @@
+Reddit Monitor 使用指南
+====================
+
+安装依赖：
+pip install -r requirements.txt
+
+启动监控：
+python reddit_monitor.py
+
+分析数据：
+python data_analyzer.py
+
+功能说明：
+- 每10分钟自动获取 radiaeddit.com 的数据
+- 检测内容变化，只有变化时才保存数据
+- 数据保存在 data/ 目录下
+- 生成详细的日志文件 reddit_monitor.log
+
+停止监控：
+按 Ctrl+C 停止程序
+
+数据文件格式：
+data/data_YYYYMMDD_HHMMSS.json
+
+日志查看：
+tail -f reddit_monitor.log
