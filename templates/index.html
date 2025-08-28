@@ -98,6 +98,16 @@
             background: #c0392b;
         }
         
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            margin-left: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -232,6 +242,8 @@
             <div class="controls">
                 <button class="btn btn-primary" id="start-btn" onclick="startMonitoring()">开始监控</button>
                 <button class="btn btn-danger" id="stop-btn" onclick="stopMonitoring()" disabled>停止监控</button>
+                <button class="btn btn-secondary" onclick="exportCSV()">导出CSV</button>
+                <button class="btn btn-secondary" onclick="exportJSON()">导出JSON</button>
             </div>
         </div>
         
@@ -239,9 +251,11 @@
             <h2>数据文件 <button class="refresh-btn" onclick="refreshData()">刷新</button></h2>
             <div class="status-card">
                 <div id="data-summary">
-                    <p>总文件数: <span id="total-files">0</span></p>
+                    <p>总记录数: <span id="total-files">0</span></p>
                     <p>最新数据时间: <span id="latest-timestamp">无</span></p>
-                    <p>最新内容大小: <span id="latest-size">0</span> 字符</p>
+                    <p>当前在线人数: <span id="current-online">0</span></p>
+                    <p>子版块成员数: <span id="current-members">0</span></p>
+                    <p>监控子版块: <span id="current-subreddit">-</span></p>
                 </div>
             </div>
             
@@ -292,27 +306,34 @@
                         return;
                     }
                     
-                    document.getElementById('total-files').textContent = data.total_files || 0;
+                    document.getElementById('total-files').textContent = data.total_entries || 0;
                     document.getElementById('latest-timestamp').textContent = data.latest_timestamp ? new Date(data.latest_timestamp).toLocaleString('zh-CN') : '无';
-                    document.getElementById('latest-size').textContent = (data.latest_content_length || 0).toLocaleString();
+                    document.getElementById('current-online').textContent = data.current_online_count || 0;
+                    document.getElementById('current-members').textContent = data.current_member_count ? Number(data.current_member_count).toLocaleString() : 0;
+                    document.getElementById('current-subreddit').textContent = data.subreddit ? 'r/' + data.subreddit : '-';
                     
                     let listHtml = '';
-                    if (data.files && data.files.length > 0) {
-                        data.files.reverse().forEach(file => {
+                    if (data.recent_entries && data.recent_entries.length > 0) {
+                        data.recent_entries.reverse().forEach(entry => {
+                            const success = entry.success === 'True';
+                            const statusIcon = success ? '✅' : '❌';
+                            const onlineCount = entry.online_count ? entry.online_count + ' 在线' : '未知';
+                            const memberCount = entry.member_count ? Number(entry.member_count).toLocaleString() + ' 成员' : '未知';
+                            
                             listHtml += `
                                 <div class="data-item">
                                     <div>
-                                        <strong>${file.filename}</strong><br>
-                                        <small>状态码: ${file.status_code} | 大小: ${file.content_length.toLocaleString()} 字符</small>
+                                        <strong>r/${entry.subreddit}</strong> ${statusIcon}<br>
+                                        <small>${onlineCount} | ${memberCount}</small>
                                     </div>
                                     <div>
-                                        ${new Date(file.timestamp).toLocaleString('zh-CN')}
+                                        ${new Date(entry.timestamp).toLocaleString('zh-CN')}
                                     </div>
                                 </div>
                             `;
                         });
                     } else {
-                        listHtml = '<div class="data-item">暂无数据文件</div>';
+                        listHtml = '<div class="data-item">暂无监控记录</div>';
                     }
                     document.getElementById('data-list').innerHTML = listHtml;
                 })
@@ -372,6 +393,14 @@
                     console.error('Error:', error);
                     alert('停止失败');
                 });
+        }
+
+        function exportCSV() {
+            window.open('/api/export/csv', '_blank');
+        }
+
+        function exportJSON() {
+            window.open('/api/export/json', '_blank');
         }
 
         function startAutoRefresh() {

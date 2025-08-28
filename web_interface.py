@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file, Response
 import json
 import os
 from datetime import datetime
@@ -29,22 +29,27 @@ class WebMonitor(RedditMonitor):
         }
     
     def monitor_once_with_status(self):
-        """Enhanced monitoring with status tracking"""
+        """Enhanced monitoring with status tracking for Reddit online count"""
         self.status['last_check'] = datetime.now().isoformat()
         self.status['total_checks'] += 1
         
         try:
-            data = self.fetch_website_data()
-            if not data:
+            data = self.fetch_reddit_online_count()
+            if not data or not data.get('success'):
                 self.status['errors'] += 1
                 return
             
             has_changes = self.check_for_changes(data)
             if has_changes:
                 self.status['changes_detected'] += 1
-                saved_file = self.save_data(data)
-                if saved_file:
-                    self.logger.info(f"Data saved to: {saved_file}")
+            
+            # Always save Reddit data for trend tracking
+            saved_file = self.save_data_to_csv(data)
+            if saved_file:
+                online_count = data.get('online_count', 'N/A')
+                member_count = data.get('member_count', 'N/A')
+                subreddit = data.get('subreddit', 'unknown')
+                self.logger.info(f"r/{subreddit}: {online_count} online, {member_count} members")
         except Exception as e:
             self.status['errors'] += 1
             self.logger.error(f"Monitor error: {e}")
@@ -92,35 +97,35 @@ def get_status():
 
 @app.route('/api/data')
 def get_data():
-    """Get monitoring data analysis"""
+    """Get Reddit online count monitoring data"""
     try:
-        analyzer = DataAnalyzer()
-        files = analyzer.get_all_data_files()
+        csv_file = f"{config_manager.get_monitor_config().get('data_directory', 'test_data')}/reddit_online_count.csv"
         
-        if not files:
-            return jsonify({'error': 'No data files found'})
+        if not os.path.exists(csv_file):
+            return jsonify({'error': 'No CSV data found'})
         
-        # Get latest file info
-        latest_file = files[-1]
-        latest_data = analyzer.load_data_file(latest_file)
+        # Read latest entries from CSV
+        import csv
+        latest_entries = []
+        with open(csv_file, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            latest_entries = rows[-10:] if len(rows) > 10 else rows  # Last 10 entries
+        
+        if not latest_entries:
+            return jsonify({'error': 'No data entries found'})
+        
+        latest_entry = latest_entries[-1]
         
         result = {
-            'total_files': len(files),
-            'latest_timestamp': latest_data.get('timestamp') if latest_data else None,
-            'latest_content_length': len(latest_data.get('content', '')) if latest_data else 0,
-            'files': []
+            'total_entries': len(rows),
+            'latest_timestamp': latest_entry.get('timestamp'),
+            'current_online_count': latest_entry.get('online_count'),
+            'current_member_count': latest_entry.get('member_count'),
+            'subreddit': latest_entry.get('subreddit'),
+            'success_rate': len([r for r in latest_entries if r.get('success') == 'True']) / len(latest_entries) * 100 if latest_entries else 0,
+            'recent_entries': latest_entries[-5:] if len(latest_entries) > 5 else latest_entries  # Last 5 entries
         }
-        
-        # Get info for recent files (last 10)
-        for filepath in files[-10:]:
-            data = analyzer.load_data_file(filepath)
-            if data:
-                result['files'].append({
-                    'filename': os.path.basename(filepath),
-                    'timestamp': data.get('timestamp'),
-                    'content_length': len(data.get('content', '')),
-                    'status_code': data.get('status_code')
-                })
         
         return jsonify(result)
     except Exception as e:
@@ -174,6 +179,64 @@ def get_logs():
             return jsonify({'logs': []})
     except Exception as e:
         return jsonify({'error': str(e)})
+
+@app.route('/api/export/csv')
+def export_csv():
+    """Export monitoring data as CSV file"""
+    try:
+        data_dir = config_manager.get_monitor_config().get('data_directory', 'test_data')
+        csv_file = f"{data_dir}/reddit_online_count.csv"
+        
+        if not os.path.exists(csv_file):
+            return jsonify({'error': 'No CSV data found'}), 404
+        
+        # Return the CSV file for download
+        return send_file(
+            csv_file,
+            as_attachment=True,
+            download_name=f'reddit_monitor_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
+            mimetype='text/csv'
+        )
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/export/json')
+def export_json():
+    """Export monitoring data as JSON file"""
+    try:
+        data_dir = config_manager.get_monitor_config().get('data_directory', 'test_data')
+        csv_file = f"{data_dir}/reddit_online_count.csv"
+        
+        if not os.path.exists(csv_file):
+            return jsonify({'error': 'No CSV data found'}), 404
+        
+        # Read CSV and convert to JSON format
+        import csv
+        json_data = []
+        with open(csv_file, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                json_data.append(row)
+        
+        # Create JSON response
+        json_output = {
+            'export_date': datetime.now().isoformat(),
+            'data_source': 'reddit_online_count_monitoring',
+            'total_entries': len(json_data),
+            'entries': json_data
+        }
+        
+        response = Response(
+            json.dumps(json_output, indent=2, ensure_ascii=False),
+            mimetype='application/json'
+        )
+        response.headers['Content-Disposition'] = f'attachment; filename=reddit_monitor_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+        
+        return response
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/config')
 def get_config():
