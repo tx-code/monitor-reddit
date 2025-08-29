@@ -144,12 +144,19 @@ cython_debug/
 
 # Application specific
 data/
-config.json
+logs/
+config/config.json
 reddit_monitor.log
 test_data/
 test_config.json
 *.tmp
 *.temp
+
+# Streamlit cache
+.streamlit/secrets.toml
+
+# Claude Code
+.claude/
 
 # OS specific
 .DS_Store
