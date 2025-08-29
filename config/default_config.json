@@ -1,0 +1,42 @@
+{
+  "monitor": {
+    "url": "https://www.reddit.com/r/CNC/",
+    "interval_minutes": 10,
+    "data_directory": "data",
+    "enabled": false,
+    "continuous_mode": true,
+    "last_check_time": null,
+    "last_successful_check": null,
+    "next_scheduled_check": null,
+    "total_checks": 0,
+    "failed_checks": 0
+  },
+  "notifications": {
+    "enable_changes": true,
+    "enable_errors": true,
+    "notification_threshold": 50
+  },
+  "storage": {
+    "max_files": 100,
+    "auto_cleanup": true,
+    "backup_data": true
+  },
+  "session": {
+    "start_time": null,
+    "end_time": null,
+    "session_duration": 0,
+    "checks_this_session": 0
+  },
+  "ui": {
+    "theme": "light",
+    "auto_refresh": false,
+    "refresh_interval_seconds": 60,
+    "default_time_range": "最近24小时",
+    "show_advanced_charts": true
+  },
+  "logging": {
+    "level": "INFO",
+    "max_log_size_mb": 10,
+    "log_retention_days": 30
+  }
+}
